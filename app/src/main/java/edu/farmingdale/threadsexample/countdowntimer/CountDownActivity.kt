@@ -1,5 +1,6 @@
 package edu.farmingdale.threadsexample.countdowntimer
 
+import TimerViewModel
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -45,7 +46,6 @@ class CountDownActivity : ComponentActivity() {
             }
         }
 
-        // Only need permission to post notifications on Tiramisu and above
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(this,
                     Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_DENIED) {
@@ -57,7 +57,6 @@ class CountDownActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
 
-        // Start TimerWorker if the timer is running
         if (timerViewModel.isRunning) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 if (ActivityCompat.checkSelfPermission(this,

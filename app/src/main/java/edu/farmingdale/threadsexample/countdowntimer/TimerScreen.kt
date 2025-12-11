@@ -1,5 +1,7 @@
 package edu.farmingdale.threadsexample.countdowntimer
 
+import TimerViewModel
+import android.media.MediaPlayer
 import android.util.Log
 import android.widget.NumberPicker
 import androidx.compose.animation.core.LinearEasing
@@ -18,18 +20,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import edu.farmingdale.threadsexample.R
 import java.text.DecimalFormat
 import java.util.Locale
 import kotlin.time.Duration
@@ -40,31 +44,72 @@ fun TimerScreen(
     modifier: Modifier = Modifier,
     timerViewModel: TimerViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+
+    val progress by animateFloatAsState(
+        targetValue = if (timerViewModel.totalMillis > 0L) {
+            (timerViewModel.remainingMillis.toFloat() / timerViewModel.totalMillis.toFloat())
+                .coerceIn(0f, 1f)
+        } else {
+            0f
+        },
+        animationSpec = tween(
+            durationMillis = 300,
+            easing = LinearEasing
+        ),
+        label = "timerProgress"
+    )
+
+    val isLast10Seconds =
+        timerViewModel.remainingMillis in 1_000L..10_000L
+
+    // Play a sound when timer reaches 0
+    LaunchedEffect(timerViewModel.remainingMillis) {
+        if (timerViewModel.remainingMillis == 0L && !timerViewModel.isRunning) {
+            // Only play when it actually finishes, not while it's running
+            val player = MediaPlayer.create(context, R.raw.timer_sound)
+            player.setOnCompletionListener { it.release() }
+            player.start()
+        }
+    }
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = modifier
-                .padding(20.dp)
-                .size(240.dp),
+                .padding(top = 60.dp)   // moves circle downward
+                .size(200.dp),          // smaller circle so it fits better
             contentAlignment = Alignment.Center
         ) {
-            if (timerViewModel.isRunning) {
 
+            // Circular progress indicator behind the text
+            if (timerViewModel.totalMillis > 0L) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    strokeWidth = 8.dp,
+                    modifier = Modifier.size(200.dp)
+                )
             }
+
             Text(
                 text = timerText(timerViewModel.remainingMillis),
-                fontSize = 40.sp,
+                fontSize = 48.sp, // scale text to circle size
+                color = if (isLast10Seconds) Color.Red else Color.Black,
+                fontWeight = if (isLast10Seconds) FontWeight.Bold else FontWeight.Normal
             )
         }
+
+
         TimePicker(
             hour = timerViewModel.selectedHour,
             min = timerViewModel.selectedMinute,
             sec = timerViewModel.selectedSecond,
             onTimePick = timerViewModel::selectTime
         )
+
         if (timerViewModel.isRunning) {
             Button(
                 onClick = timerViewModel::cancelTimer,
-                modifier = modifier.padding(50.dp)
+                modifier = modifier.padding(top = 50.dp)
             ) {
                 Text("Cancel")
             }
@@ -79,16 +124,24 @@ fun TimerScreen(
                 Text("Start")
             }
         }
+
+        if (timerViewModel.totalMillis > 0L) {
+            Button(
+                onClick = timerViewModel::resetTimer,
+                modifier = modifier.padding(top = 16.dp)
+            ) {
+                Text("Reset")
+            }
+        }
     }
 }
-
-
 
 fun timerText(timeInMillis: Long): String {
     val duration: Duration = timeInMillis.milliseconds
     return String.format(
-        Locale.getDefault(),"%02d:%02d:%02d",
-        duration.inWholeHours, duration.inWholeMinutes % 60, duration.inWholeSeconds % 60)
+        Locale.getDefault(), "%02d:%02d:%02d",
+        duration.inWholeHours, duration.inWholeMinutes % 60, duration.inWholeSeconds % 60
+    )
 }
 
 @Composable
@@ -158,7 +211,7 @@ fun NumberPickerWrapper(
     AndroidView(
         factory = { context ->
             NumberPicker(context).apply {
-                setOnValueChangedListener { numberPicker, oldVal, newVal -> onNumPick(newVal) }
+                setOnValueChangedListener { _, _, newVal -> onNumPick(newVal) }
                 minValue = minVal
                 maxValue = maxVal
                 value = initVal
