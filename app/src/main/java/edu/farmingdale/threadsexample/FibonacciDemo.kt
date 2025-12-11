@@ -46,6 +46,50 @@ fun FibonacciDemoNoBgThrd() {
         Text("Result: $answer")
     }
 }
+@Composable
+fun FibonacciDemoWithCoroutine() {
+    var answer by remember { mutableStateOf("") }
+    var textInput by remember { mutableStateOf("40") }
+    var isCalculating by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+
+    Column {
+        Row {
+            TextField(
+                value = textInput,
+                onValueChange = { textInput = it },
+                label = { Text("Number?") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                )
+            )
+            Button(
+                onClick = {
+                    val num = textInput.toLongOrNull() ?: 0
+                    isCalculating = true
+                    scope.launch(Dispatchers.Default) {
+                        val fibNumber = fibonacci(num)
+                        val formatted = NumberFormat
+                            .getNumberInstance(Locale.US)
+                            .format(fibNumber)
+
+                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            answer = formatted
+                            isCalculating = false
+                        }
+                    }
+                }
+            ) {
+                Text(if (isCalculating) "Working" else "Fibonacci")
+            }
+        }
+
+        Text("Result: $answer")
+    }
+}
+
 
 fun fibonacci(n: Long): Long {
     return if (n <= 1) n else fibonacci(n - 1) + fibonacci(n - 2)
